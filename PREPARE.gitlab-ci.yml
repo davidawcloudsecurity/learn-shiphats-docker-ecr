@@ -1,0 +1,6 @@
+.init-registry: # For eg, Initialize DEPLOY_TO_REGISTRY repository. Pls customize in your own context.
+  script:
+    - echo "Init Registry in Build Job"
+
+prepare-job: # do not change the name of this job without making updates to .gitlab-ci.yml
+  extends: .init-registry

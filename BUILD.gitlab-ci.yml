@@ -1,0 +1,25 @@
+include:
+  - project: "innersource/sgts/ship-hats/ship-hats-templates"
+    ref: "v1.1.2"
+    file:
+      - "templates/.gitlab-ci-docker-build.yml"
+      - "templates/.gitlab-ci-slsa-common.yml"
+
+# Include the following variables in your .gitlab-ci.yml
+# variables:
+#   TEST_REGISTRY: ""
+
+# Update and include variables to customize in your own context.
+build-job: # build image. define in BUILD.gitlab-ci.yml file.
+  stage: build
+  extends:
+    - .build-and-push-docker-image
+    # - .generate-gitlab-attestation # Include this to generate attestation to be signed during the build process. Required if opt in to signing and verification of gitlab attestation.
+  variables:
+    DOCKERFILE_PATH: $DOCKERFILE_DIR
+    DOCKERFILE_NAME: "Dockerfile"
+    DOCKER_TARGET_REGISTRY: "$TEST_REGISTRY"
+    DOCKER_TARGET_IMAGE: "$PRODUCT_IMAGE_NAME:$VERSION"
+    DIGESTFILE_NAME: "$CI_PROJECT_DIR/$PRODUCT_IMAGE_NAME-digest"
+    OUTPUT_IMAGE_ARTEFACT: "$PRODUCT_IMAGE_NAME.tar" # path of output file for scanning
+    OPTS: "--tarPath $OUTPUT_IMAGE_ARTEFACT"
