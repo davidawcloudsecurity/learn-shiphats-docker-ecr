@@ -1,0 +1,62 @@
+.init-registry: # For eg, Initialize DEPLOY_TO_REGISTRY repository. Pls customize in your own context.
+  script:
+    - echo "Init Registry in Build Job"
+
+prepare-job: # do not change the name of this job without making updates to .gitlab-ci.yml
+  extends: .init-registry
+
+  include:
+  - project: "innersource/sgts/ship-hats/ship-hats-templates"
+    ref: "v1.1.2"
+    file:
+      - "templates/.gitlab-ci-docker-build.yml"
+      - "templates/.gitlab-ci-slsa-common.yml"
+
+# Include the following variables in your .gitlab-ci.yml
+# variables:
+#   TEST_REGISTRY: ""
+
+# Update and include variables to customize in your own context.
+build-job: # build image. define in BUILD.gitlab-ci.yml file.
+  stage: build
+  extends:
+    - .build-and-push-docker-image
+    # - .generate-gitlab-attestation # Include this to generate attestation to be signed during the build process. Required if opt in to signing and verification of gitlab attestation.
+  variables:
+    DOCKERFILE_PATH: $DOCKERFILE_DIR
+    DOCKERFILE_NAME: "Dockerfile"
+    DOCKER_TARGET_REGISTRY: "$TEST_REGISTRY"
+    DOCKER_TARGET_IMAGE: "$PRODUCT_IMAGE_NAME:$VERSION"
+    DIGESTFILE_NAME: "$CI_PROJECT_DIR/$PRODUCT_IMAGE_NAME-digest"
+    OUTPUT_IMAGE_ARTEFACT: "$PRODUCT_IMAGE_NAME.tar" # path of output file for scanning
+    OPTS: "--tarPath $OUTPUT_IMAGE_ARTEFACT"
+
+    include:
+  - project: "innersource/sgts/ship-hats/ship-hats-templates"
+    ref: "v1.1.2"
+    file:
+      - "templates/.gitlab-ci-docker-copy.yml"
+
+# Include the following variables in your .gitlab-ci.yml
+# variables:
+#   DEPLOY_TO_REGISTRY: ""
+#   TEST_REGISTRY: ""
+
+# Update and include variables to customize in your own context.
+.deploy-docker: # Push image into DEPLOY_TO_REGISTRY repository.
+  extends:
+    - .copy-docker-image-from-one-remote-registry-to-another
+  variables:
+    SRC_IMAGE: $TEST_REGISTRY/$PRODUCT_IMAGE_NAME:$VERSION
+    DEST_IMAGE: $DEPLOY_TO_REGISTRY/$PRODUCT_IMAGE_NAME:$VERSION
+    OPTS: "--remove-signatures --authfile $HOME/.docker/config.json"
+  before_script:
+    - mkdir -p $HOME/.docker
+    - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
+
+deploy-prod-manual-job: # do not change the name of this job at all
+  extends: .deploy-docker
+  environment: # TODO: should be adaptable to different environment
+    name: production
+  when: manual
+  allow_failure: false
